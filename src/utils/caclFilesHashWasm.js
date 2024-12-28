@@ -1,7 +1,7 @@
 /**
  * @Author: longmo
  * @Date: 2024-12-28 16:49:13
- * @LastEditTime: 2024-12-28 19:30:20
+ * @LastEditTime: 2024-12-28 21:05:34
  * @FilePath: src/utils/caclFilesHashWasm.js
  * @Description:
  */
@@ -105,6 +105,12 @@ const calcFileHashSingleMode = async (file) => {
     }
   });
 };
+
+/**
+ * @description: 单个文件计算MD5
+ * @param files
+ * @returns {Promise<unknown>}
+ */
 export const calcFilesHashWasmSingleMode = async (files) => {
   return new Promise(async (resolve) => {
     try {
@@ -125,6 +131,38 @@ export const calcFilesHashWasmSingleMode = async (files) => {
       resolve(results);
     } catch (error) {
       throw new Error(`计算 MD5 时出错: ${error.message}`, { cause: error });
+    }
+  });
+};
+
+/**
+ * @description: 批量计算文件MD5
+ * @param files
+ * @param batchSize
+ * @returns {Promise<unknown>}
+ */
+export const calcFilesHashWasmBatch= async (files, batchSize = 10) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const fileList = Array.from(files);
+      if (!Array.isArray(fileList) || fileList.length === 0) {
+        resolve([]);
+      }
+
+      const results = [];
+      for (let i = 0; i < fileList.length; i += batchSize) {
+        const batch = fileList.slice(i, i + batchSize);
+        const promises = batch.map((file) => calcFileHash(file));
+        const batchResults = await Promise.all(promises);
+        results.push(...batchResults);
+
+        // 可选：添加短暂延迟以减轻系统负担
+        await new Promise(resolve => setTimeout(resolve, 10)); // 例如等待10ms
+      }
+
+      resolve(results);
+    } catch (error) {
+      reject(new Error(`计算 MD5 时出错: ${error.message}`, { cause: error }))
     }
   });
 };

@@ -1,16 +1,18 @@
 /**
  * @Author: longmo
  * @Date: 2024-12-28 16:35:02
- * @LastEditTime: 2024-12-28 16:41:46
+ * @LastEditTime: 2024-12-28 22:53:52
  * @FilePath: src/utils/BenchmarkTool.js
  * @Description:
  */
 class BenchmarkTool {
-  constructor() {
+  constructor(opt) {
     this.startTime = 0;
     this.endTime = 0;
     this.elapsedTime = 0;
+    this.totalElapsedTime = 0;
     this.name = "";
+    this.taskName = opt?.taskName ?? "";
     this.samples = [];
   }
 
@@ -45,6 +47,10 @@ class BenchmarkTool {
     return sum / this.samples.length;
   }
 
+  getTotalElapsedTime() {
+    return this.samples.reduce((acc, val) => acc + val, 0);
+  }
+
   // 执行给定的函数并自动进行基准测试
 
   runSync(func, iterations = 1, ...args) {
@@ -58,6 +64,9 @@ class BenchmarkTool {
         4
       )} ms`
     );
+    if (!this.name) {
+      this.name = func.name;
+    }
   }
 
   async runAsync(func, iterations = 1, ...args) {
@@ -71,12 +80,30 @@ class BenchmarkTool {
         4
       )} ms`
     );
+    if (!this.name) {
+      debugger;
+      this.name = func.name;
+    }
   }
 
   // 清除所有样本数据
   clearSamples() {
     this.samples = [];
+    this.name = "";
     console.log("Benchmark samples cleared.");
+  }
+
+  getResult() {
+    // 操作次数
+    const ops = this.samples.length;
+    return {
+      taskName: this.taskName,
+      name: this.name,
+      samples: this.samples,
+      ops,
+      averageElapsedTime: this.getAverageElapsedTime(),
+      totalElapsedTime: this.getTotalElapsedTime(),
+    };
   }
 }
 
