@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import XEUtils from "xe-utils";
 import BenchmarkTool from "@/utils/BenchmarkTool";
 import { calcFilesSparkMd5 } from "@/utils/calcFilesSparkMd5";
 import {
+  calcFilesHashWasm,
   calcFilesHashWasm10Concurrent,
   calcFilesHashWasmBatch,
   calcFilesHashWasmConcurrent,
@@ -17,151 +18,8 @@ const hashResult = ref([]);
 
 // 迭代次数
 const ITERATIONS = 3;
-/**
- * 计算单个文件的 SparkMD5 哈希值
- * 不分块计算
- * @returns {Promise<unknown>}
- * @param e
- */
-const handleFileChange = async (e) => {
-  console.log(e.target?.files);
-  const { files } = e.target;
-  if (!files) {
-    return;
-  }
-  imgFileList.value = files;
-};
 
-const handleCalcHashSparkMd5 = async () => {
-  // sparkMd5Value.value = await calcFileSparkMd5(files[0]);
-  // sparkMd5Value.value = await calcFilesSparkMd5(e); // 计算多个文件的 SparkMD5 哈希值
-  const benchmark = new BenchmarkTool({
-    taskName: "HashSparkMd5",
-  });
-  // 运行基准测试
-  await benchmark.runAsync(calcFilesSparkMd5, ITERATIONS, imgFileList.value); // 执行 exampleFunction 5 次
-
-  // 获取平均执行时间
-  console.log(
-    `Average elapsed time: ${benchmark.getAverageElapsedTime().toFixed(4)} ms`
-  );
-
-  const throughput = calcThroughputBy(imgFileList.value, benchmark);
-  hashResult.value = [
-    ...hashResult.value,
-    {
-      ...throughput,
-      ...benchmark.getResult(),
-    },
-  ];
-  // 清除样本数据
-  benchmark.clearSamples();
-};
-
-const handleCalcHashWasm4Concurrent = async () => {
-  const count = 4;
-  const benchmark = new BenchmarkTool({
-    taskName: `HashWasm ${count}个并发`,
-  });
-  // 运行基准测试
-  await benchmark.runAsync(
-    calcFilesHashWasmConcurrent,
-    ITERATIONS,
-    imgFileList.value,
-    count
-  ); // 执行 exampleFunction 5 次
-
-  // 获取平均执行时间
-  console.log(
-    `Average elapsed time: ${benchmark.getAverageElapsedTime().toFixed(4)} ms`
-  );
-
-  const throughput = calcThroughputBy(imgFileList.value, benchmark);
-  hashResult.value = [
-    ...hashResult.value,
-    {
-      ...throughput,
-      ...benchmark.getResult(),
-    },
-  ];
-  // 清除样本数据
-  benchmark.clearSamples();
-};
-
-const handleCalcHashWasm10Concurrent = async () => {
-  const benchmark = new BenchmarkTool({ taskName: "HashWasm 10个并发" });
-  // 运行基准测试
-  await benchmark.runAsync(
-    calcFilesHashWasm10Concurrent,
-    ITERATIONS,
-    imgFileList.value
-  ); // 执行 exampleFunction 5 次
-
-  // 获取平均执行时间
-  console.log(
-    `Average elapsed time: ${benchmark.getAverageElapsedTime().toFixed(4)} ms`
-  );
-
-  const throughput = calcThroughputBy(imgFileList.value, benchmark);
-  hashResult.value = [
-    ...hashResult.value,
-    {
-      ...throughput,
-      ...benchmark.getResult(),
-    },
-  ];
-  // 清除样本数据
-  benchmark.clearSamples();
-};
-
-const handleCalcHashWasmSingleMode = async () => {
-  const benchmark = new BenchmarkTool({
-    taskName: "HashWasm 单个模式",
-  });
-  await benchmark.runAsync(
-    calcFilesHashWasmSingleMode,
-    ITERATIONS,
-    imgFileList.value
-  );
-  console.log(
-    `Average elapsed time: ${benchmark.getAverageElapsedTime().toFixed(4)} ms`
-  );
-
-  const throughput = calcThroughputBy(imgFileList.value, benchmark);
-  hashResult.value = [
-    ...hashResult.value,
-    {
-      ...throughput,
-      ...benchmark.getResult(),
-    },
-  ];
-  // 清除样本数据
-  benchmark.clearSamples();
-};
-
-const handleCalcFilesHashWasmBatch = async () => {
-  const benchmark = new BenchmarkTool({
-    taskName: "HashWasm Batch",
-  });
-  await benchmark.runAsync(
-    calcFilesHashWasmBatch,
-    ITERATIONS,
-    imgFileList.value
-  );
-  console.log(
-    `Average elapsed time: ${benchmark.getAverageElapsedTime().toFixed(4)} ms`
-  );
-  const throughput = calcThroughputBy(imgFileList.value, benchmark);
-  hashResult.value = [
-    ...hashResult.value,
-    {
-      ...throughput,
-      ...benchmark.getResult(),
-    },
-  ];
-  benchmark.clearSamples();
-};
-
+const loading = ref(false);
 const gridOptions = ref({
   border: true,
   columns: [
@@ -184,11 +42,162 @@ const gridOptions = ref({
     },
     { field: "throughput", title: "吞吐量(MB/s)" },
   ],
-  data: [],
+  data: computed(() => hashResult.value),
 });
 
+/**
+ * 计算单个文件的 SparkMD5 哈希值
+ * 不分块计算
+ * @returns {Promise<unknown>}
+ * @param e
+ */
+const handleFileChange = async (e) => {
+  const { files } = e.target;
+  if (!files || files.length === 0) {
+    console.log("No files selected");
+    return;
+  }
+
+  // 验证文件是否有效
+  const validFiles = Array.from(files).filter((file) => file.size > 0);
+  if (validFiles.length === 0) {
+    console.log("All selected files are invalid");
+    return;
+  }
+  imgFileList.value = files;
+  // console.log("Selected files:", validFiles);
+};
+
+const runBenchmarkSafe = async (taskName, calcFunction, ...args) => {
+  try {
+    const benchmark = new BenchmarkTool({ taskName });
+    await benchmark.runAsync(calcFunction, ITERATIONS, ...args);
+
+    const averageElapsedTime = benchmark.getAverageElapsedTime().toFixed(4);
+    console.log(`Average elapsed time: ${averageElapsedTime} ms`);
+
+    const throughput = calcThroughputBy(args[0], benchmark);
+    hashResult.value.push({
+      ...throughput,
+      ...benchmark.getResult(),
+    });
+
+    // 清除样本数据
+    await benchmark.clearSamples();
+  } catch (error) {
+    console.error(`Error during benchmark for ${taskName}:`, error);
+  }
+};
+
+const tasks = computed(() => [
+  {
+    name: "HashSparkMd5",
+    func: calcFilesSparkMd5,
+    args: [imgFileList.value],
+  },
+  {
+    name: "HashWasm 4个并发",
+    func: calcFilesHashWasmConcurrent,
+    args: [imgFileList.value, 4],
+  },
+  {
+    name: "HashWasm 10个并发",
+    func: calcFilesHashWasm10Concurrent,
+    args: [imgFileList.value],
+  },
+  {
+    name: "HashWasm Batch",
+    func: calcFilesHashWasmBatch,
+    args: [imgFileList.value],
+  },
+  {
+    name: "HashWasmSingleMode",
+    func: calcFilesHashWasmSingleMode,
+    args: [imgFileList.value],
+  },
+  // {
+  //   name: "HashWasm Batch",
+  //   func: calcFilesHashWasm,
+  //   args: [imgFileList.value],
+  // },
+]);
+
+const runBenchmark = async (taskName, calcFunction, ...args) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const benchmark = new BenchmarkTool({ taskName });
+      console.log("args", args);
+      await benchmark.runAsync(calcFunction, ITERATIONS, ...args);
+      const averageElapsedTime = benchmark.getAverageElapsedTime().toFixed(4);
+      console.log(`Average elapsed time: ${averageElapsedTime} ms`);
+
+      const throughput = calcThroughputBy(args[0], benchmark);
+      hashResult.value.push({
+        ...throughput,
+        ...benchmark.getResult(),
+      });
+      // 清除样本数据
+      await benchmark.clearSamples();
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+const handleCalcHashSparkMd5 = () =>
+  runBenchmarkSafe("HashSparkMd5", calcFilesSparkMd5, imgFileList.value);
+
+const handleCalcHashWasm4Concurrent = () =>
+  runBenchmarkSafe(
+    "HashWasm 4个并发",
+    calcFilesHashWasmConcurrent,
+    imgFileList.value,
+    4
+  );
+
+const handleCalcHashWasm10Concurrent = () =>
+  runBenchmarkSafe(
+    "HashWasm 10个并发",
+    calcFilesHashWasm10Concurrent,
+    imgFileList.value
+  );
+
+const handleCalcHashWasmSingleMode = () =>
+  runBenchmarkSafe(
+    "HashWasm 单个模式",
+    calcFilesHashWasmSingleMode,
+    imgFileList.value
+  );
+
+const handleCalcFilesHashWasmBatch = () =>
+  runBenchmarkSafe("HashWasm Batch", calcFilesHashWasmBatch, imgFileList.value);
+
+/**
+ * 一键启动
+ */
+const handleStart = async () => {
+  try {
+    loading.value = true;
+    for (const task of tasks.value) {
+      await runBenchmark(task.name, task.func, ...task.args);
+    }
+  } catch (e) {
+    console.error(e);
+    alert(`测试失败${e}`);
+  } finally {
+    loading.value = false;
+    handleSumTable();
+  }
+};
+
 const handleSumTable = () => {
-  gridOptions.value.data = hashResult.value;
+  // gridOptions.value.data = hashResult.value;
+  loading.value = false;
+};
+
+const reset = () => {
+  hashResult.value = [];
+  // gridOptions.value.data = [];
 };
 </script>
 
@@ -206,19 +215,24 @@ const handleSumTable = () => {
     </div>
 
     <div>
-      <button @click="handleSumTable">汇总表格</button>
-      <button @click="handleCalcHashSparkMd5">calcHashSparkMd5</button>
-      <button @click="handleCalcHashWasm10Concurrent">
+      <button @click="handleStart" :disabled="loading">一键启动测试</button>
+      <button @click="handleSumTable" :disabled="loading">汇总表格</button>
+      <button @click="reset" :disabled="loading">重置表格</button>
+
+      <button @click="handleCalcHashSparkMd5" :disabled="loading">
+        calcHashSparkMd5
+      </button>
+      <button @click="handleCalcHashWasm10Concurrent" :disabled="loading">
         calcFilesHashWasm 10个并发
       </button>
-      <button @click="handleCalcHashWasm4Concurrent">
+      <button @click="handleCalcHashWasm4Concurrent" :disabled="loading">
         calcFilesHashWasm 4个并发
       </button>
-      <button @click="handleCalcHashWasmSingleMode">
+      <button @click="handleCalcHashWasmSingleMode" :disabled="loading">
         calcHashWasmSingleMode
       </button>
 
-      <button @click="handleCalcFilesHashWasmBatch">
+      <button @click="handleCalcFilesHashWasmBatch" :disabled="loading">
         calcFilesHashWasmBatch
       </button>
     </div>

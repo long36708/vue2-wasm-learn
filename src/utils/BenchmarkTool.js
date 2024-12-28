@@ -1,7 +1,7 @@
 /**
  * @Author: longmo
  * @Date: 2024-12-28 16:35:02
- * @LastEditTime: 2024-12-28 22:53:52
+ * @LastEditTime: 2024-12-28 23:56:47
  * @FilePath: src/utils/BenchmarkTool.js
  * @Description:
  */
@@ -81,16 +81,16 @@ class BenchmarkTool {
       )} ms`
     );
     if (!this.name) {
-      debugger;
       this.name = func.name;
     }
   }
 
   // 清除所有样本数据
-  clearSamples() {
+  async clearSamples() {
     this.samples = [];
     this.name = "";
     console.log("Benchmark samples cleared.");
+    await this.sleep(1000);
   }
 
   getResult() {
@@ -104,6 +104,10 @@ class BenchmarkTool {
       averageElapsedTime: this.getAverageElapsedTime(),
       totalElapsedTime: this.getTotalElapsedTime(),
     };
+  }
+
+  sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
