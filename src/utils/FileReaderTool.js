@@ -1,12 +1,14 @@
 /**
  * @Author: longmo
  * @Date: 2024-12-29 00:27:54
- * @LastEditTime: 2024-12-29 00:32:53
+ * @LastEditTime: 2024-12-29 12:07:11
  * @FilePath: src/utils/FileReaderTool.js
  * @Description:
  */
 class FileReaderTool {
-  constructor() {}
+  constructor() {
+    //
+  }
 
   /**
    * 创建一个带有进度回调的文件读取器
@@ -72,7 +74,7 @@ class FileReaderTool {
 
   /**
    * 检查文件类型是否符合预期
-   * @param {File} file - 文件对象
+   * @param {File | Blob } file - 文件对象
    * @param {string|string[]} types - 预期的 MIME 类型或类型数组
    * @returns {boolean}
    */
@@ -88,7 +90,7 @@ class FileReaderTool {
 
   /**
    * 读取文件为文本
-   * @param {File} file - 要读取的文件对象
+   * @param {File } file - 要读取的文件对象
    * @returns {Promise<string>} 解析为文件内容字符串的 Promise
    */
   static readAsText(file) {
@@ -116,7 +118,7 @@ class FileReaderTool {
 
   /**
    * 读取文件为 ArrayBuffer
-   * @param {File} file - 要读取的文件对象
+   * @param {File } file - 要读取的文件对象
    * @returns {Promise<ArrayBuffer>} 解析为 ArrayBuffer 的 Promise
    */
   static readAsArrayBuffer(file) {
@@ -125,6 +127,141 @@ class FileReaderTool {
       reader.onload = (e) => resolve(e.target.result);
       reader.onerror = (error) => reject(error);
       reader.readAsArrayBuffer(file);
+    });
+  }
+
+  /**
+   * 将 Blob 转换为 Base64
+   * @param blob
+   * @returns {Promise<unknown>}
+   */
+  static blobToBase64(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /**
+   * 将 Blob 转换为 ArrayBuffer
+   * @param blob
+   * @returns {Promise<unknown>}
+   */
+  static blobToArrayBuffer(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject;
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+
+  /**
+   * 将 Base64 转换为 Blob
+   * @param base64Data
+   * @param contentType
+   * @param sliceSize
+   * @returns {Blob}
+   */
+  static base64toBlob(
+    base64Data,
+    contentType = "application/octet-stream",
+    sliceSize = 512
+  ) {
+    // 输入验证
+    if (typeof base64Data !== "string") {
+      throw new Error("base64Data must be a string");
+    }
+    if (typeof contentType !== "string") {
+      throw new Error("contentType must be a string");
+    }
+    if (!Number.isInteger(sliceSize) || sliceSize <= 0) {
+      throw new Error("sliceSize must be a positive integer");
+    }
+
+    try {
+      const byteCharacters = atob(base64Data);
+      const byteArrays = [];
+
+      for (
+        let offset = 0;
+        offset < byteCharacters.length;
+        offset += sliceSize
+      ) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteArray = new Uint8Array(slice.length);
+
+        for (let i = 0; i < slice.length; i++) {
+          byteArray[i] = slice.charCodeAt(i);
+        }
+
+        byteArrays.push(byteArray);
+      }
+
+      return new Blob(byteArrays, { type: contentType });
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "InvalidCharacterError"
+      ) {
+        throw new Error("Invalid Base64 string");
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * 将 Blob 转换为 Object URL
+   * @param blob
+   * @returns {string}
+   */
+  static blob2ObjectUrl(blob) {
+    return URL.createObjectURL(blob);
+  }
+
+  /**
+   * 将 ArrayBuffer 转换为 Blob
+   * @param buffer
+   * @param byteOffset
+   * @param length
+   * @param contentType
+   * @returns {Blob}
+   */
+  static arrayBuffer2Blob(
+    buffer,
+    byteOffset = 0,
+    length = buffer?.byteLength || 0,
+    contentType = "application/octet-stream" // 通用的 MIME 类型，用于表示未指定格式的二进制数据
+  ) {
+    // 参数验证
+    if (!buffer || !(buffer instanceof ArrayBuffer)) {
+      throw new TypeError("The first argument must be an ArrayBuffer.");
+    }
+
+    if (
+      typeof byteOffset !== "number" ||
+      byteOffset < 0 ||
+      byteOffset > buffer.byteLength
+    ) {
+      throw new RangeError(
+        "byteOffset must be a non-negative integer and less than buffer.byteLength."
+      );
+    }
+
+    if (
+      typeof length !== "number" ||
+      length < 0 ||
+      byteOffset + length > buffer.byteLength
+    ) {
+      throw new RangeError(
+        "length must be a non-negative integer and within the bounds of the buffer."
+      );
+    }
+
+    return new Blob([new Uint8Array(buffer, byteOffset, length)], {
+      type: contentType,
     });
   }
 }
