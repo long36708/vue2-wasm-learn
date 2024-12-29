@@ -1,7 +1,7 @@
 /**
  * @Author: longmo
  * @Date: 2024-12-29 00:27:54
- * @LastEditTime: 2024-12-29 12:07:11
+ * @LastEditTime: 2024-12-29 17:48:56
  * @FilePath: src/utils/FileReaderTool.js
  * @Description:
  */
@@ -213,6 +213,43 @@ class FileReaderTool {
   }
 
   /**
+   * 将 Base64 字符串转换为 Blob
+   * @param base64Str
+   * @returns {Blob}
+   */
+  static getBase64ToBlob(base64Str) {
+    try {
+      // 验证 base64Str 是否符合预期格式
+      if (!base64Str.startsWith("data:")) {
+        throw new Error("Invalid base64 string format");
+      }
+
+      const [header, data] = base64Str.split(",", 2);
+      if (data === undefined) {
+        throw new Error("Invalid base64 string format");
+      }
+
+      const mimeString = header.split(":")[1].split(";")[0];
+      let byteString;
+
+      if (header.includes("base64")) {
+        byteString = atob(data);
+      } else {
+        byteString = decodeURIComponent(escape(data));
+      }
+
+      // 使用 TextEncoder 提高性能
+      const encoder = new TextEncoder();
+      const uint8Array = encoder.encode(byteString);
+
+      return new Blob([uint8Array], { type: mimeString });
+    } catch (error) {
+      console.error("Error converting base64 to blob:", error.message);
+      throw error; // 重新抛出异常以便调用者处理
+    }
+  }
+
+  /**
    * 将 Blob 转换为 Object URL
    * @param blob
    * @returns {string}
@@ -263,6 +300,45 @@ class FileReaderTool {
     return new Blob([new Uint8Array(buffer, byteOffset, length)], {
       type: contentType,
     });
+  }
+
+  /**
+   * 将 Base64 转换为 File
+   * @param base64Str
+   * @param fileName
+   * @returns {File}
+   */
+  static base64ToFile(base64Str, fileName) {
+    try {
+      // 检查 base64Str 是否为空或不符合预期格式
+      if (!base64Str || !base64Str.includes(",")) {
+        throw new Error("Invalid base64 string format");
+      }
+
+      const arr = base64Str.split(",");
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      if (!mimeMatch) {
+        throw new Error("Invalid MIME type format");
+      }
+      const mime = mimeMatch[1];
+
+      let bstr;
+      try {
+        bstr = atob(arr[1]);
+      } catch (e) {
+        throw new Error("Invalid Base64 string");
+      }
+
+      const u8arr = new Uint8Array(bstr.length);
+      for (let i = 0; i < bstr.length; i++) {
+        u8arr[i] = bstr.charCodeAt(i);
+      }
+
+      return new File([u8arr], fileName, { type: mime });
+    } catch (error) {
+      console.error("Error converting base64 to file:", error.message);
+      throw error; // 重新抛出错误以便调用者处理
+    }
   }
 }
 

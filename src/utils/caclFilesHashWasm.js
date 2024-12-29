@@ -1,13 +1,14 @@
 /**
  * @Author: longmo
  * @Date: 2024-12-28 16:49:13
- * @LastEditTime: 2024-12-29 00:39:57
+ * @LastEditTime: 2024-12-29 21:34:21
  * @FilePath: src/utils/caclFilesHashWasm.js
  * @Description:
  */
-import { createMD5, md5 as wasmMD5 } from "hash-wasm";
+import { createMD5 } from "hash-wasm";
 import pLimit from "p-limit";
 import FileReaderTool from "./FileReaderTool";
+import * as Comlink from "comlink";
 
 const calcFileHash = async (file) => {
   return new Promise(async (resolve, reject) => {
@@ -178,3 +179,53 @@ export const calcFilesHashWasmBatch = async (files, batchSize = 10) => {
 //     }
 //   });
 // };
+
+export const calcFilesHashWasmByWorker = async (files) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // 调用webworker计算文件MD5
+      const worker = new Worker(
+        new URL("@/workers/hashwasmWorker.js", import.meta.url),
+        { type: "module" }
+      );
+      worker.postMessage(files);
+
+      worker.onmessage = (e) => {
+        console.log("webworker result", e.data);
+        worker.terminate();
+        resolve(e.data);
+      };
+
+      worker.onerror = (e) => {
+        console.error("webworker error", e);
+        worker.terminate();
+        reject(e);
+      };
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
+export const calcFilesHashWasmByComlink = async (files) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const fileList = Array.from(files);
+      if (!Array.isArray(fileList) || fileList.length === 0) {
+        resolve([]);
+      }
+      const results = [];
+      const worker = new Worker(
+        new URL("@/workers/comlinkWorker.js", import.meta.url),
+        { type: "module" }
+      );
+      // WebWorkers use `postMessage` and therefore work with Comlink.
+      const comlink = Comlink.wrap(worker);
+      const result = await comlink.calcFilesHash(fileList);
+      console.log("result", result);
+      resolve(results);
+    } catch (e) {
+      reject(e);
+    }
+  });
+};

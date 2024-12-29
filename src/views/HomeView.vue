@@ -6,6 +6,8 @@ import { calcFilesSparkMd5 } from "@/utils/calcFilesSparkMd5";
 import {
   calcFilesHashWasm10Concurrent,
   calcFilesHashWasmBatch,
+  calcFilesHashWasmByComlink,
+  calcFilesHashWasmByWorker,
   calcFilesHashWasmConcurrent,
   calcFilesHashWasmSingleMode,
 } from "@/utils/caclFilesHashWasm";
@@ -124,11 +126,21 @@ const tasks = computed(() => [
     func: calcFilesHashWasmSingleMode,
     args: [imgFileList.value],
   },
-  // {
-  //   name: "HashWasm Batch",
-  //   func: calcFilesHashWasm,
-  //   args: [imgFileList.value],
-  // },
+  {
+    name: "HashWasm Batch",
+    func: calcFilesHashWasmByComlink,
+    args: [imgFileList.value],
+  },
+  {
+    name: "HashWasm ByWorker",
+    func: calcFilesHashWasmByWorker,
+    args: [imgFileList.value],
+  },
+  {
+    name: "HashWasm ByComlink",
+    func: calcFilesHashWasmByComlink,
+    args: [imgFileList.value],
+  },
 ]);
 
 const runBenchmark = async (taskName, calcFunction, ...args) => {
@@ -181,6 +193,22 @@ const handleCalcHashWasmSingleMode = () =>
 const handleCalcFilesHashWasmBatch = () =>
   runBenchmarkSafe("HashWasm Batch", calcFilesHashWasmBatch, imgFileList.value);
 
+const handleCalcFilesByWorker = () => {
+  runBenchmarkSafe(
+    "HashWasm ByWorker",
+    calcFilesHashWasmByWorker,
+    imgFileList.value
+  );
+};
+
+const handleCalcFilesHashWasmByComlink = () => {
+  runBenchmarkSafe(
+    "HashWasm ByComlink",
+    calcFilesHashWasmByComlink,
+    imgFileList.value
+  );
+};
+
 /**
  * 一键启动
  */
@@ -218,6 +246,7 @@ const reset = () => {
     <div>警告：运行基准测试时需要关闭 DevTools，否则会影响性能。</div>
     <div>
       <input type="file" multiple accept="image/*" @change="handleFileChange" />
+      <input />
     </div>
 
     <div>
@@ -245,6 +274,14 @@ const reset = () => {
 
       <button @click="handleCalcFilesHashWasmBatch" :disabled="loading">
         calcFilesHashWasmBatch
+      </button>
+
+      <button @click="handleCalcFilesByWorker" :disabled="loading">
+        calcFilesHashWasmWorker
+      </button>
+
+      <button @click="handleCalcFilesHashWasmByComlink" :disabled="loading">
+        calcFilesHashWasmComlink
       </button>
     </div>
 
