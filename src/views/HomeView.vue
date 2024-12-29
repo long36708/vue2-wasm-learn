@@ -4,7 +4,6 @@ import XEUtils from "xe-utils";
 import BenchmarkTool from "@/utils/BenchmarkTool";
 import { calcFilesSparkMd5 } from "@/utils/calcFilesSparkMd5";
 import {
-  calcFilesHashWasm,
   calcFilesHashWasm10Concurrent,
   calcFilesHashWasmBatch,
   calcFilesHashWasmConcurrent,
@@ -22,7 +21,17 @@ const ITERATIONS = 3;
 const loading = ref(false);
 const gridOptions = ref({
   border: true,
+  exportConfig: {},
+  toolbarConfig: {
+    export: true,
+    zoom: true,
+  },
+  columnConfig: {
+    // resizable: true,
+  },
   columns: [
+    { type: "checkbox", width: 50 },
+    { type: "seq", width: 70 },
     { field: "taskName", title: "任务名称" },
     { field: "ops", title: "执行次数" },
     {
@@ -176,6 +185,7 @@ const handleCalcFilesHashWasmBatch = () =>
  * 一键启动
  */
 const handleStart = async () => {
+  if (!imgFileList.value.length) return alert("请选择文件");
   try {
     loading.value = true;
     for (const task of tasks.value) {
@@ -205,6 +215,7 @@ const reset = () => {
   <main>
     <div>Home</div>
 
+    <div>警告：运行基准测试时需要关闭 DevTools，否则会影响性能。</div>
     <div>
       <input type="file" multiple accept="image/*" @change="handleFileChange" />
     </div>
